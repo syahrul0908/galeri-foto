@@ -12,7 +12,7 @@ session_start();
       margin: 0;
     }
     header {
-      background: linear-gradient(135deg, #6a11cb, #b91d73, #2575fc);
+      background: linear-gradient(135deg, #0c1445, #1a237e, #283593);
       color: white;
       padding: 15px 20px;
       display: flex;
@@ -62,7 +62,7 @@ session_start();
         position: absolute;
         top: 60px;
         right: 0;
-        background: rgba(0, 0, 0, 0.9);
+        background: rgba(12, 20, 69, 0.95);
         flex-direction: column;
         gap: 15px;
         padding: 20px;
@@ -94,8 +94,7 @@ session_start();
     <nav id="menu">
       <a href="index.php">🏠 Galeri</a>
       <?php if (isset($_SESSION['admin_id'])): ?>
-          <a href="admin/upload.php">➕ Upload</a>
-          <a href="admin/foto.php">⚙️ Manajemen Foto</a>
+          <a href="admin/foto.php">⚙️ Dashboard Admin</a>
           <a href="admin/logout.php">🚪 Logout</a>
       <?php else: ?>
           <a href="admin/login.php">🔑 Login</a>
@@ -110,5 +109,3 @@ session_start();
       document.getElementById("menu").classList.toggle("show");
     }
   </script>
-</body>
-</html>

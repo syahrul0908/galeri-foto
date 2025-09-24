@@ -5,16 +5,41 @@ include "database.php";
 // Ambil kategori
 $kategoriRes = $conn->query("SELECT * FROM kategori ORDER BY nama ASC");
 
-// Cek filter kategori
+// Filter & search
 $filter = isset($_GET['kategori']) ? intval($_GET['kategori']) : 0;
+$search = isset($_GET['search']) ? trim($_GET['search']) : "";
 
+// Pagination settings - DIUBAH MENJADI 4 FOTO PER HALAMAN
+$limit = 4; // Diubah dari 8 menjadi 4 foto per halaman
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $limit;
+
+// Hitung total data
+$countSql = "SELECT COUNT(*) as total FROM galeri WHERE 1=1";
+if ($filter > 0) $countSql .= " AND kategori_id = $filter";
+if (!empty($search)) {
+    $searchSafe = $conn->real_escape_string($search);
+    $countSql .= " AND (judul LIKE '%$searchSafe%' OR deskripsi LIKE '%$searchSafe%')";
+}
+$countResult = $conn->query($countSql);
+$totalRows = $countResult->fetch_assoc()['total'];
+$totalPages = ceil($totalRows / $limit);
+if ($totalPages > 0 && $page > $totalPages) {
+    $page = $totalPages;
+    $offset = ($page - 1) * $limit;
+} elseif ($totalPages == 0) {
+    $page = 1;
+}
+
+// Query data galeri
 $sql = "SELECT galeri.*, kategori.nama AS kategori 
         FROM galeri 
-        LEFT JOIN kategori ON galeri.kategori_id = kategori.id";
-if ($filter > 0) {
-    $sql .= " WHERE galeri.kategori_id = $filter";
-}
-$sql .= " ORDER BY galeri.id DESC";
+        LEFT JOIN kategori ON galeri.kategori_id = kategori.id
+        WHERE 1=1";
+if ($filter > 0) $sql .= " AND galeri.kategori_id = $filter";
+if (!empty($search)) $sql .= " AND (galeri.judul LIKE '%$search%' OR galeri.deskripsi LIKE '%$search%')";
+$sql .= " ORDER BY galeri.id DESC LIMIT $limit OFFSET $offset";
 $result = $conn->query($sql);
 ?>
 
@@ -26,9 +51,9 @@ body {
   background: #f4f6f9;
 }
 
-/* Judul */
+/* Judul dengan animasi dan efek cahaya */
 .title-container {
-  background: linear-gradient(-45deg, #6a11cb, #b91d73, #2575fc, #00c6ff);
+  background: linear-gradient(-45deg, #0c1445, #1a237e, #283593, #303f9f);
   background-size: 600% 600%;
   animation: waveBackground 8s ease infinite;
   padding: 40px 20px;
@@ -37,24 +62,62 @@ body {
   color: white;
   margin-bottom: 30px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+  position: relative;
+  overflow: hidden;
 }
+
 @keyframes waveBackground {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-h1 { font-size:2.5rem; font-weight:bold; margin:0; text-shadow:0 2px 6px rgba(0,0,0,0.3); }
-.typing { border-right: 2px solid #fff; display:inline-block; white-space:nowrap; overflow:hidden; animation: caret 0.8s infinite; }
-@keyframes caret { 50% { border-color: transparent; } }
 
-/* Tombol kategori */
+.title-container h1 {
+  font-size: 3rem;
+  font-weight: bold;
+  margin: 0;
+  color: #ffffff;
+  text-shadow: 
+    0 0 10px rgba(255, 255, 255, 0.8),
+    0 0 20px rgba(255, 255, 255, 0.6),
+    0 0 30px rgba(255, 255, 255, 0.4);
+  letter-spacing: 2px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Efek cahaya tambahan */
+.title-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.kategori-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
 .kategori-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  justify-content: center;
-  margin-bottom: 30px;
 }
+
 .kategori-buttons a {
   padding: 10px 20px;
   border-radius: 999px;
@@ -67,109 +130,452 @@ h1 { font-size:2.5rem; font-weight:bold; margin:0; text-shadow:0 2px 6px rgba(0,
   transition: all 0.3s ease;
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
+
 .kategori-buttons a:hover {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, #1a237e, #283593);
   color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(99,102,241,0.4);
+  box-shadow: 0 6px 12px rgba(26,35,126,0.4);
 }
+
 .kategori-buttons a.active {
-  background: linear-gradient(135deg, #4f46e5, #9333ea);
+  background: linear-gradient(135deg, #0c1445, #1a237e);
   color: #fff;
   border: 2px solid transparent;
-  box-shadow: 0 6px 12px rgba(79,70,229,0.5);
+  box-shadow: 0 6px 12px rgba(12,20,69,0.5);
 }
 
-/* Galeri pakai Grid */
+.search-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.search-bar input[type="text"] {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+  outline: none;
+  width: 250px;
+  transition: all 0.3s ease;
+}
+
+.search-bar input[type="text"]:focus {
+  border-color: #1a237e;
+  box-shadow: 0 0 6px rgba(26,35,126,0.3);
+}
+
+.search-bar button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1a237e, #283593);
+  color: #fff;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.search-bar button:hover {
+  background: linear-gradient(135deg, #0c1445, #1a237e);
+  transform: translateY(-1px);
+}
+
+/* GALERI RATA KANAN/HORIZONTAL - DIUBAH MENJADI 4 KOLOM */
 .gallery-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  margin-bottom: 30px;
 }
+
 .card {
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  opacity: 0;
-  transform: scale(0.9);
-  transition: all 0.4s ease;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  aspect-ratio: 3/4; /* Rasio foto vertikal */
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+}
+
+.card-image {
+  position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
-.card.show { opacity: 1; transform: scale(1); }
-.card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.25);
-}
+
 .card img {
   width: 100%;
-  height: 220px;
+  height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: 12px 12px 0 0;
   transition: transform 0.4s ease;
 }
-.card:hover img { transform: scale(1.05); }
 
-.card .info {
-  padding: 12px 15px;
+.card:hover img {
+  transform: scale(1.05);
 }
-.card h3 { margin: 0; font-size:16px; font-weight:bold; color:#333; }
-.card p { margin: 4px 0 0; font-size:13px; color:#666; }
+
+/* Link yang bisa diklik pada seluruh card */
+.card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+/* Overlay judul saat hover */
+.card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.8) 100%);
+  padding: 20px 15px;
+  color: white;
+  opacity: 0;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.card:hover .card-overlay {
+  opacity: 1;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.card-category {
+  font-size: 13px;
+  opacity: 0.9;
+  color: #e0e0e0;
+}
+
+/* Responsif untuk layout grid */
+@media (max-width: 1200px) {
+  .gallery-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kategori-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .search-bar input[type="text"] {
+    width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gallery-container {
+    grid-template-columns: 1fr;
+  }
+  .search-bar input[type="text"] {
+    width: 150px;
+  }
+}
+
+/* Animation untuk cards */
+.card {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger animation untuk cards - DIUBAH UNTUK 4 FOTO */
+.card:nth-child(1) { animation-delay: 0.1s; }
+.card:nth-child(2) { animation-delay: 0.2s; }
+.card:nth-child(3) { animation-delay: 0.3s; }
+.card:nth-child(4) { animation-delay: 0.4s; }
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  margin: 40px 0 20px 0;
+}
+
+.pagination {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #fff;
+  padding: 15px 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.pagination a, .pagination span {
+  padding: 10px 16px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  min-width: 42px;
+  text-align: center;
+  display: inline-block;
+  border: 2px solid transparent;
+}
+
+.pagination a {
+  background: #f8f9fa;
+  color: #1a237e;
+  border: 2px solid #e0e0e0;
+}
+
+.pagination a:hover {
+  background: #1a237e;
+  color: white;
+  border-color: #1a237e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+}
+
+.pagination .current {
+  background: linear-gradient(135deg, #0c1445, #1a237e);
+  color: white;
+  border: 2px solid #0c1445;
+  box-shadow: 0 4px 12px rgba(12, 20, 69, 0.4);
+  transform: scale(1.05);
+}
+
+.pagination .prev, .pagination .next {
+  background: linear-gradient(135deg, #4a5568, #718096);
+  color: white;
+  border: 2px solid #4a5568;
+  padding: 10px 16px;
+  font-weight: bold;
+}
+
+.pagination .prev:hover, .pagination .next:hover {
+  background: linear-gradient(135deg, #2d3748, #4a5568);
+  border-color: #2d3748;
+  transform: translateY(-2px);
+}
+
+.pagination .disabled {
+  background: #f1f3f4;
+  color: #9aa0a6;
+  border: 2px solid #dadce0;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.pagination .disabled:hover {
+  background: #f1f3f4;
+  color: #9aa0a6;
+  border-color: #dadce0;
+  transform: none;
+  box-shadow: none;
+}
+
+.pagination .ellipsis {
+  background: transparent;
+  border: none;
+  color: #666;
+  padding: 10px 8px;
+  cursor: default;
+  font-weight: normal;
+  box-shadow: none;
+}
+
+.pagination-info {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #666;
+  font-size: 14px;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 10px;
+  border-left: 4px solid #1a237e;
+}
+
+.no-photos {
+  text-align: center;
+  color: #333;
+  font-size: 18px;
+  padding: 60px 40px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin: 20px 0;
+  line-height: 1.6;
+}
+
+.no-photos a {
+  color: #1a237e;
+  text-decoration: none;
+  font-weight: bold;
+  margin-top: 15px;
+  display: inline-block;
+  padding: 8px 16px;
+  border: 2px solid #1a237e;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.no-photos a:hover {
+  background: #1a237e;
+  color: white;
+}
 </style>
 
 <div class="title-container">
-  <h1><span id="typing" class="typing"></span></h1>
+  <h1>📸 Galeri Foto</h1>
 </div>
 
-<!-- Tombol kategori -->
-<div class="kategori-buttons">
-  <a href="index.php" class="<?= $filter === 0 ? 'active' : '' ?>">Semua</a>
-  <?php while ($kat = $kategoriRes->fetch_assoc()): ?>
-    <a href="index.php?kategori=<?= $kat['id'] ?>" 
-       class="<?= $filter == $kat['id'] ? 'active' : '' ?>">
-       <?= htmlspecialchars($kat['nama']) ?>
-    </a>
-  <?php endwhile; ?>
-</div>
-
-<?php if ($result->num_rows > 0): ?>
-  <div class="gallery-container" id="gallery">
-    <?php while ($row = $result->fetch_assoc()): ?>
-      <div class="card">
-        <a href="detail.php?id=<?= $row['id'] ?>">
-          <img src="uploads/<?= htmlspecialchars($row['file']) ?>" alt="<?= htmlspecialchars($row['judul']) ?>">
-        </a>
-        <div class="info">
-          <h3><?= htmlspecialchars($row['judul']) ?></h3>
-          <p><?= $row['kategori'] ?? "Tanpa Kategori" ?></p>
-        </div>
-      </div>
+<!-- Filter kategori + search -->
+<div class="kategori-container">
+  <div class="kategori-buttons">
+    <a href="index.php" class="<?= $filter === 0 ? 'active' : '' ?>">Semua</a>
+    <?php 
+    $kategoriRes->data_seek(0); // Reset pointer
+    while ($kat = $kategoriRes->fetch_assoc()): ?>
+      <a href="index.php?kategori=<?= $kat['id'] ?>" class="<?= $filter == $kat['id'] ? 'active' : '' ?>">
+        <?= htmlspecialchars($kat['nama']) ?>
+      </a>
     <?php endwhile; ?>
   </div>
+  <form method="GET" class="search-bar">
+    <?php if ($filter > 0): ?>
+      <input type="hidden" name="kategori" value="<?= $filter ?>">
+    <?php endif; ?>
+    <input type="text" name="search" placeholder="🔍 Cari foto..." value="<?= htmlspecialchars($search) ?>">
+    <button type="submit">Cari</button>
+  </form>
+</div>
+
+<!-- Info hasil -->
+<?php if ($totalRows > 0): ?>
+<div class="pagination-info">
+  Menampilkan <strong><?= $offset + 1 ?>-<?= min($offset + $limit, $totalRows) ?></strong> dari <strong><?= $totalRows ?></strong> foto
+  <?php if (!empty($search)): ?>
+    untuk pencarian "<strong><?= htmlspecialchars($search) ?></strong>"
+  <?php endif; ?>
+</div>
+<?php endif; ?>
+
+<!-- Galeri Rata Kanan/Horizontal -->
+<?php if ($result->num_rows > 0): ?>
+<div class="gallery-container">
+  <?php while ($row = $result->fetch_assoc()): ?>
+    <div class="card">
+      <a href="detail.php?id=<?= $row['id'] ?>" class="card-link">
+        <div class="card-image">
+          <img src="uploads/<?= htmlspecialchars($row['file']) ?>" alt="<?= htmlspecialchars($row['judul']) ?>">
+          <div class="card-overlay">
+            <div class="card-title"><?= htmlspecialchars($row['judul']) ?></div>
+            <div class="card-category"><?= $row['kategori'] ?? "Tanpa Kategori" ?></div>
+          </div>
+        </div>
+      </a>
+    </div>
+  <?php endwhile; ?>
+</div>
 <?php else: ?>
-  <p style="text-align:center; color:#333;">Belum ada foto di kategori ini.</p>
+  <div class="no-photos">
+    <?php if (!empty($search)): ?>
+      ❌ Tidak ada foto ditemukan untuk pencarian "<strong><?= htmlspecialchars($search) ?></strong>".
+      <br><a href="index.php">Tampilkan semua foto</a>
+    <?php else: ?>
+      📷 Belum ada foto di galeri.
+      <br><small>Silakan tambahkan foto melalui admin panel.</small>
+    <?php endif; ?>
+  </div>
+<?php endif; ?>
+
+<!-- Pagination -->
+<?php if ($totalPages > 1): ?>
+<div class="pagination-container">
+  <div class="pagination">
+    <?php
+    // Previous button
+    if ($page > 1) {
+        $prevParams = $_GET;
+        $prevParams['page'] = $page - 1;
+        echo '<a href="?' . http_build_query($prevParams) . '" class="prev">‹ Prev</a>';
+    } else {
+        echo '<span class="prev disabled">‹ Prev</span>';
+    }
+    
+    // Always show first page
+    if ($page > 3) {
+        $firstParams = $_GET;
+        $firstParams['page'] = 1;
+        echo '<a href="?' . http_build_query($firstParams) . '">1</a>';
+        if ($page > 4) echo '<span class="ellipsis">...</span>';
+    }
+    
+    // Show page numbers around current page
+    for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++) {
+        $pageParams = $_GET;
+        $pageParams['page'] = $i;
+        
+        if ($i == $page) {
+            echo '<span class="current">' . $i . '</span>';
+        } else {
+            echo '<a href="?' . http_build_query($pageParams) . '">' . $i . '</a>';
+        }
+    }
+    
+    // Always show last page
+    if ($page < $totalPages - 2) {
+        if ($page < $totalPages - 3) echo '<span class="ellipsis">...</span>';
+        $lastParams = $_GET;
+        $lastParams['page'] = $totalPages;
+        echo '<a href="?' . http_build_query($lastParams) . '">' . $totalPages . '</a>';
+    }
+    
+    // Next button
+    if ($page < $totalPages) {
+        $nextParams = $_GET;
+        $nextParams['page'] = $page + 1;
+        echo '<a href="?' . http_build_query($nextParams) . '" class="next">Next ›</a>';
+    } else {
+        echo '<span class="next disabled">Next ›</span>';
+    }
+    ?>
+  </div>
+</div>
 <?php endif; ?>
 
 <script>
-  // Typing efek judul
-  const text = "📸 Galeri Foto";
-  let i=0;
-  function typeEffect(){
-    if(i<text.length){
-      document.getElementById("typing").innerHTML+=text.charAt(i);
-      i++;
-      setTimeout(typeEffect,100);
-    }
-  }
-  window.onload = typeEffect;
-
-  // Fade-in animasi kartu
+// Animation untuk cards
+document.addEventListener('DOMContentLoaded', function() {
   const cards = document.querySelectorAll('.card');
-  window.addEventListener('load', ()=>{
-    cards.forEach((card,index)=>{
-      setTimeout(()=>{ card.classList.add('show'); }, index*100);
-    });
+  
+  cards.forEach((card, index) => {
+    card.style.animationDelay = (index * 0.1) + 's';
   });
+});
 </script>
 
 <?php include "includes/footer.php"; ?>

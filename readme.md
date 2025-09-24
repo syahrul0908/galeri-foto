@@ -124,6 +124,7 @@ Proyek ini bersifat open-source. Silakan gunakan, modifikasi, dan distribusikan 
     R --> Z[Selesai]
 ```
 ---
+## Screenshot
 ![alt text](Readme.PNG) 
 ![alt text](readme1.PNG) 
 ![alt text](readme2.PNG)

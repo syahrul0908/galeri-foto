@@ -299,7 +299,7 @@ $kategoriRes = $conn->query("SELECT * FROM kategori ORDER BY nama ASC");
                 </div>
                 
                 <div class="form-group">
-                    <label for="foto">Foto (JPG/PNG/GIF, max 5MB)</label>
+                    <label for="foto">Foto (JPG/PNG), (max 5MB)</label>
                     <input type="file" name="foto" id="foto" accept=".jpg,.jpeg,.png,.gif" required
                            onchange="previewImage(event)">
                     <div class="preview" id="preview"></div>

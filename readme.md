@@ -43,6 +43,7 @@ galeri-foto/
 ├── uploads/             # Folder penyimpanan file foto
 ├── database.php         # Koneksi database
 ├── index.php            # Halaman utama galeri (untuk user)
+├── request.php          # Publik me-request foto
 └── readme.md            # Dokumentasi proyek
 ```
 

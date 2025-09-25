@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 if (!isset($_SESSION['admin_id'])) {
     header("Location: login.php");
@@ -6,322 +7,110 @@ if (!isset($_SESSION['admin_id'])) {
 }
 include "../database.php";
 
-// Tambah kategori baru
-if (isset($_POST['kategori_baru'])) {
-    $namaKat = trim($_POST['kategori_baru']);
-    if ($namaKat !== "") {
-        $stmt = $conn->prepare("INSERT INTO kategori (nama) VALUES (?)");
-        $stmt->bind_param("s", $namaKat);
+// Approve foto
+if (isset($_GET['approve'])) {
+    $id = intval($_GET['approve']);
+    $req = $conn->query("SELECT * FROM request_foto WHERE id=$id AND status='pending'")->fetch_assoc();
+    if ($req) {
+        // Ganti 'tanggal' dengan nama kolom tanggal di tabel galeri, misal 'tanggal_upload'
+        $stmt = $conn->prepare("INSERT INTO galeri (judul, deskripsi, kategori_id, file, tanggal_upload) VALUES (?, ?, ?, ?, NOW())");
+        $stmt->bind_param("ssis", $req['judul'], $req['deskripsi'], $req['kategori_id'], $req['file']);
         $stmt->execute();
-        $stmt->close();
+        // Update status request
+        $conn->query("UPDATE request_foto SET status='approved' WHERE id=$id");
+        $msg = "Foto berhasil disetujui dan masuk galeri.";
     }
-    header("Location: foto.php");
-    exit;
 }
 
-// Hapus kategori
-if (isset($_GET['delete_kategori'])) {
-    $id = intval($_GET['delete_kategori']);
-    $conn->query("DELETE FROM kategori WHERE id=$id");
-    header("Location: foto.php");
-    exit;
+// Reject foto
+if (isset($_GET['reject'])) {
+    $id = intval($_GET['reject']);
+    $conn->query("UPDATE request_foto SET status='rejected' WHERE id=$id");
+    $msg = "Foto berhasil ditolak.";
 }
 
-// Ambil kategori untuk dropdown
-$kategoriRes = $conn->query("SELECT * FROM kategori ORDER BY nama ASC");
-
-// Ambil semua foto
-$result = $conn->query("SELECT galeri.*, kategori.nama as kategori 
-                        FROM galeri 
-                        LEFT JOIN kategori ON galeri.kategori_id = kategori.id
-                        ORDER BY id DESC");
-
-// Ambil data foto yang mau diedit
-$editFoto = null;
-if (isset($_GET['edit'])) {
-    $editId = intval($_GET['edit']);
-    $editFoto = $conn->query("SELECT * FROM galeri WHERE id=$editId")->fetch_assoc();
-}
-
-// Update foto
-if ($editFoto && $_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['kategori_baru']) && !isset($_POST['kategori_edit'])) {
-    $judul = $_POST['judul'];
-    $deskripsi = $_POST['deskripsi'];
-    $kat = intval($_POST['kategori']);
-
-    if (!empty($_FILES['foto']['name'])) {
-        $file = $_FILES['foto']['name'];
-        $tmp = $_FILES['foto']['tmp_name'];
-        $target = "../uploads/" . basename($file);
-
-        if (move_uploaded_file($tmp, $target)) {
-            if (file_exists("../uploads/" . $editFoto['file'])) {
-                unlink("../uploads/" . $editFoto['file']);
-            }
-            $stmt = $conn->prepare("UPDATE galeri SET judul=?, deskripsi=?, kategori_id=?, file=? WHERE id=?");
-            $stmt->bind_param("ssisi", $judul, $deskripsi, $kat, $file, $editFoto['id']);
-            $stmt->execute();
-            $stmt->close();
-        }
-    } else {
-        $stmt = $conn->prepare("UPDATE galeri SET judul=?, deskripsi=?, kategori_id=? WHERE id=?");
-        $stmt->bind_param("ssii", $judul, $deskripsi, $kat, $editFoto['id']);
-        $stmt->execute();
-        $stmt->close();
-    }
-
-    header("Location: foto.php");
-    exit;
-}
-
-// Ambil kategori yang mau diedit
-$editKat = null;
-if (isset($_GET['edit_kategori'])) {
-    $editId = intval($_GET['edit_kategori']);
-    $editKat = $conn->query("SELECT * FROM kategori WHERE id=$editId")->fetch_assoc();
-}
-
-// Update kategori
-if ($editKat && isset($_POST['kategori_edit'])) {
-    $namaKat = trim($_POST['kategori_edit']);
-    if ($namaKat !== "") {
-        $stmt = $conn->prepare("UPDATE kategori SET nama=? WHERE id=?");
-        $stmt->bind_param("si", $namaKat, $editKat['id']);
-        $stmt->execute();
-        $stmt->close();
-    }
-    header("Location: foto.php");
-    exit;
-}
-
-// Statistik
-$totalFoto = $conn->query("SELECT COUNT(*) as jml FROM galeri")->fetch_assoc()['jml'];
-$totalKategori = $conn->query("SELECT COUNT(*) as jml FROM kategori")->fetch_assoc()['jml'];
-$totalAdmin = $conn->query("SELECT COUNT(*) as jml FROM admin")->fetch_assoc()['jml'];
+// Ambil request foto pending
+$result = $conn->query("SELECT request_foto.*, kategori.nama AS kategori FROM request_foto LEFT JOIN kategori ON request_foto.kategori_id = kategori.id WHERE status='pending' ORDER BY tanggal DESC");
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Dashboard Admin</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 0; background:#f4f6f9; }
-h1 { padding:20px; margin:0; background:#4f46e5; color:#fff; }
-.table-container { padding:20px; }
-
-.stats { display:flex; gap:20px; margin:20px 0; }
-.stats .card {
-    flex:1; background:#fff; padding:20px;
-    border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);
-    text-align:center;
-    border:2px solid #3b82f6; /* Bingkai biru */
-}
-.stats .card .angka { font-size:2rem; font-weight:bold; color:#4f46e5; }
-.stats .card p { margin:5px 0 0; color:#111; font-weight:bold; }
-
-/* Tabel */
-table { border-collapse: collapse; width: 100%; background:#fff; box-shadow:0 4px 10px rgba(0,0,0,0.1); border-radius:8px; overflow:hidden; }
-th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: center; }
-th { background:#4f46e5; color:#fff; }
-img.table-img { width: 100px; height: 80px; object-fit: cover; border-radius:6px; }
-a.action-link { color:#2563eb; text-decoration:none; font-weight:bold; }
-a.action-link:hover { text-decoration:underline; }
-a.button-link { display:inline-block; margin:10px 10px 20px 0; padding:8px 14px; background:#10b981; color:#fff; border-radius:6px; text-decoration:none; font-weight:bold; }
-a.button-link:hover { background:#059669; }
-
-/* Panel */
-.edit-panel,.kategori-panel {position: fixed;top: 0;height: 100%;background: #fff;box-shadow: 0 0 12px rgba(0,0,0,0.2);padding: 20px;transition: 0.4s;overflow-y: auto;z-index: 1000;}
-.edit-panel {left: -420px;width: 400px;}
-.edit-panel.active { left: 0; }
-.kategori-panel {right: -420px;width: 400px;}
-.kategori-panel.active { right: 0; }
-label { font-weight:bold; display:block; margin-top:12px; }
-input, textarea, select, button {width: 100%;padding: 8px;margin-top:6px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;}
-button {background:#4f46e5;color:#fff;border:none;margin-top:15px;cursor:pointer;font-weight:bold;}
-button:hover { background:#4338ca; }
-
-/* Close Button */
-.close-btn {position: absolute;top: 15px;right: 15px;background: #ef4444;color: #fff;border: none;border-radius: 50%;width: 35px;height: 35px;font-size: 18px;font-weight: bold;cursor: pointer;transition: background 0.3s;}
-.close-btn:hover { background: #dc2626; }
-
-/* Overlay */
-.overlay {position: fixed;top:0;left:0;right:0;bottom:0;background: rgba(0,0,0,0.4);display:none;z-index: 900;}
-.overlay.active { display:block; }
-
-/* Daftar kategori */
-.kategori-list { margin-top:20px; }
-.kategori-list table { width:100%; border-collapse: collapse; font-size:14px; }
-.kategori-list th, .kategori-list td { padding:8px; border-bottom:1px solid #eee; text-align:left; }
-.kategori-list th { background:#f3f4f6; }
-.kategori-list a { color:#2563eb; font-weight:bold; text-decoration:none; }
-.kategori-list a:hover { text-decoration:underline; }
-.kategori-list a.delete { color:red; }
-</style>
+    <meta charset="UTF-8">
+    <title>Request Foto Publik</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f6fa; margin: 0; }
+        .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(26,35,126,0.08); padding: 32px; }
+        h1 { color: #1a237e; margin-bottom: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+        th { background: #e8eaf6; color: #283593; }
+        tr:last-child td { border-bottom: none; }
+        .btn { padding: 7px 18px; border-radius: 999px; border: none; font-weight: bold; cursor: pointer; font-size: 14px; margin-right: 6px; }
+        .btn-approve { background: #388e3c; color: #fff; }
+        .btn-approve:hover { background: #2e7031; }
+        .btn-reject { background: #d32f2f; color: #fff; }
+        .btn-reject:hover { background: #b71c1c; }
+        .msg { background: #e8f5e9; color: #388e3c; padding: 10px; border-radius: 8px; margin-bottom: 18px; text-align: center; }
+        .img-thumb { max-width: 80px; max-height: 60px; border-radius: 6px; border: 1px solid #bdbdbd; }
+        .no-data { text-align: center; color: #888; padding: 28px 0; }
+        .back-btn {
+            display:inline-block;
+            margin-bottom:18px;
+            padding:8px 22px;
+            background:linear-gradient(135deg,#283593,#3949ab);
+            color:#fff;
+            font-weight:bold;
+            border-radius:999px;
+            text-decoration:none;
+            font-size:15px;
+            box-shadow:0 2px 8px rgba(26,35,126,0.10);
+            transition:background 0.3s,transform 0.2s;
+        }
+        .back-btn:hover {
+            background:linear-gradient(135deg,#1a237e,#283593);
+            transform:translateY(-2px) scale(1.04);
+        }
+    </style>
 </head>
 <body>
-
-<h1>📊 Dashboard Admin</h1>
-
-<div class="table-container">
-
-  <!-- Statistik -->
-  <div class="stats">
-    <div class="card">
-      <div class="angka"><?= $totalFoto ?></div>
-      <p>Foto</p>
-    </div>
-    <div class="card">
-      <div class="angka"><?= $totalKategori ?></div>
-      <p>Kategori</p>
-    </div>
-    <div class="card">
-      <div class="angka"><?= $totalAdmin ?></div>
-      <p>Admin</p>
-    </div>
-  </div>
-
-  <!-- Tombol aksi -->
-  <div style="margin:20px 0;">
-    <a href="../index.php" class="button-link">⬅ Dashboard</a>
-    <a href="upload.php" class="button-link">➕ Upload Foto</a>
-    <a href="#" class="button-link" onclick="openKategoriPanel()">➕ Tambah Kategori</a>
-  </div>
-
-  <!-- Judul daftar foto -->
-  <h2 style="margin:20px 0; color:#4f46e5;">📷 Daftar Foto</h2>
-
-  <table>
-    <tr>
-      <th>No</th>
-      <th>Preview</th>
-      <th>Judul</th>
-      <th>Kategori</th>
-      <th>Tanggal Upload</th>
-      <th>Aksi</th>
-    </tr>
-    <?php $no=1; while($row = $result->fetch_assoc()): ?>
-    <tr>
-      <td><?= $no++ ?></td>
-      <td><img class="table-img" src="../uploads/<?= htmlspecialchars($row['file']) ?>" alt="<?= htmlspecialchars($row['judul']) ?>"></td>
-      <td><?= htmlspecialchars($row['judul']) ?></td>
-      <td><?= htmlspecialchars($row['kategori'] ?? 'Tanpa Kategori') ?></td>
-      <td><?= htmlspecialchars($row['tanggal_upload']) ?></td>
-      <td>
-        <a href="?edit=<?= $row['id'] ?>" class="action-link">✏ Edit</a> | 
-        <a href="delete.php?id=<?= $row['id'] ?>" onclick="return confirm('Yakin hapus foto ini?')" class="action-link" style="color:red">❌ Hapus</a>
-      </td>
-    </tr>
-    <?php endwhile; ?>
-  </table>
-</div>
-
-<!-- Overlay -->
-<div class="overlay <?= ($editFoto || $editKat) ? 'active' : '' ?>" id="overlay"></div>
-
-<!-- Slide Edit Foto -->
-<div class="edit-panel <?= $editFoto ? 'active' : '' ?>" id="editPanel">
-  <?php if ($editFoto): ?>
-  <button class="close-btn" id="closeBtn">×</button>
-  <h2>Edit Foto ID <?= $editFoto['id'] ?></h2>
-  <img id="previewFoto" src="../uploads/<?= htmlspecialchars($editFoto['file']) ?>" alt="Preview Foto" style="width:100%;border-radius:6px;margin-bottom:10px;">
-  <form method="POST" enctype="multipart/form-data">
-    <label>Judul:</label>
-    <input type="text" name="judul" value="<?= htmlspecialchars($editFoto['judul']) ?>" required>
-
-    <label>Deskripsi:</label>
-    <textarea name="deskripsi" rows="4" required><?= htmlspecialchars($editFoto['deskripsi']) ?></textarea>
-
-    <label>Kategori:</label>
-    <select name="kategori" required>
-      <?php 
-      $kategoriRes->data_seek(0);
-      while($kat = $kategoriRes->fetch_assoc()): ?>
-        <option value="<?= $kat['id'] ?>" <?= ($kat['id'] == $editFoto['kategori_id']) ? 'selected' : '' ?>>
-          <?= htmlspecialchars($kat['nama']) ?>
-        </option>
-      <?php endwhile; ?>
-    </select>
-
-    <label>Ganti Foto (opsional):</label>
-    <input type="file" name="foto" accept="image/*" onchange="previewImage(event)">
-
-    <button type="submit">💾 Simpan Perubahan</button>
-  </form>
-  <?php endif; ?>
-</div>
-
-<!-- Slide Tambah/Edit Kategori -->
-<div class="kategori-panel <?= $editKat ? 'active' : '' ?>" id="kategoriPanel">
-  <button class="close-btn" onclick="closeKategoriPanel()">×</button>
-  <?php if ($editKat): ?>
-    <h2>✏ Edit Kategori</h2>
-    <form method="POST">
-      <label>Nama Kategori:</label>
-      <input type="text" name="kategori_edit" value="<?= htmlspecialchars($editKat['nama']) ?>" required>
-      <button type="submit">💾 Update Kategori</button>
-    </form>
-  <?php else: ?>
-    <h2>➕ Tambah Kategori Baru</h2>
-    <form method="POST">
-      <label>Nama Kategori:</label>
-      <input type="text" name="kategori_baru" required placeholder="Misalnya: Landscape, Hewan, dll">
-      <button type="submit">💾 Simpan Kategori</button>
-    </form>
-  <?php endif; ?>
-
-  <div class="kategori-list">
-    <h3>📂 Daftar Kategori</h3>
+<div class="container">
+    <h1>Request Foto Publik</h1>
+    <a href="foto.php" class="back-btn">⬅ Kembali ke Manajemen Foto</a>
+    <?php if (!empty($msg)): ?>
+        <div class="msg"><?= htmlspecialchars($msg) ?></div>
+    <?php endif; ?>
+    <?php if ($result->num_rows > 0): ?>
     <table>
-      <tr>
-        <th>No</th>
-        <th>Nama</th>
-        <th>Aksi</th>
-      </tr>
-      <?php
-      $allKat = $conn->query("SELECT * FROM kategori ORDER BY id ASC");
-      $no = 1;
-      while ($kat = $allKat->fetch_assoc()): ?>
         <tr>
-          <td><?= $no++ ?></td>
-          <td><?= htmlspecialchars($kat['nama']) ?></td>
-          <td>
-            <a href="?delete_kategori=<?= $kat['id'] ?>" onclick="return confirm('Yakin hapus kategori ini?')" class="delete">❌ Hapus</a> | 
-            <a href="?edit_kategori=<?= $kat['id'] ?>" class="action-link">✏ Edit</a>
-          </td>
+            <th>Foto</th>
+            <th>Judul</th>
+            <th>Deskripsi</th>
+            <th>Kategori</th>
+            <th>Tanggal</th>
+            <th>Aksi</th>
         </tr>
-      <?php endwhile; ?>
+        <?php while ($row = $result->fetch_assoc()): ?>
+        <tr>
+            <td>
+                <a href="../uploads/<?= htmlspecialchars($row['file']) ?>" target="_blank">
+                    <img src="../uploads/<?= htmlspecialchars($row['file']) ?>" class="img-thumb" alt="foto">
+                </a>
+            </td>
+            <td><?= htmlspecialchars($row['judul']) ?></td>
+            <td><?= htmlspecialchars($row['deskripsi']) ?></td>
+            <td><?= htmlspecialchars($row['kategori'] ?? '-') ?></td>
+            <td><?= date('d-m-Y H:i', strtotime($row['tanggal'])) ?></td>
+            <td>
+                <a href="?approve=<?= $row['id'] ?>" class="btn btn-approve" onclick="return confirm('Setujui foto ini dan tampilkan di galeri?')">Setujui</a>
+                <a href="?reject=<?= $row['id'] ?>" class="btn btn-reject" onclick="return confirm('Tolak foto ini?')">Tolak</a>
+            </td>
+        </tr>
+        <?php endwhile; ?>
     </table>
-  </div>
+    <?php else: ?>
+        <div class="no-data">Tidak ada request foto publik yang menunggu persetujuan.</div>
+    <?php endif; ?>
 </div>
-
-<script>
-function previewImage(event) {
-    const reader = new FileReader();
-    reader.onload = function(){
-        document.getElementById('previewFoto').src = reader.result;
-    };
-    reader.readAsDataURL(event.target.files[0]);
-}
-
-document.getElementById('overlay').addEventListener('click', closePanel);
-const closeBtn = document.getElementById('closeBtn');
-if (closeBtn) closeBtn.addEventListener('click', closePanel);
-
-function closePanel() {
-    document.getElementById('overlay').classList.remove('active');
-    document.getElementById('editPanel').classList.remove('active');
-    window.history.pushState({}, document.title, "foto.php");
-}
-
-function openKategoriPanel() {
-    document.getElementById('overlay').classList.add('active');
-    document.getElementById('kategoriPanel').classList.add('active');
-}
-function closeKategoriPanel() {
-    document.getElementById('overlay').classList.remove('active');
-    document.getElementById('kategoriPanel').classList.remove('active');
-}
-</script>
-
 </body>
 </html>

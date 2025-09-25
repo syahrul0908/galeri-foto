@@ -361,6 +361,7 @@ h2 {
     <a href="../index.php" class="button-link">⬅ Dashboard</a>
     <a href="upload.php" class="button-link">➕ Upload Foto</a>
     <a href="#" class="button-link" onclick="openKategoriPanel()">➕ Tambah Kategori</a>
+    <a href="request_foto.php" class="button-link" style="background:linear-gradient(135deg,#388e3c,#43a047);border:2px solid #388e3c;">📝 Request Foto</a>
   </div>
 
   <!-- Judul daftar foto -->

@@ -9,10 +9,11 @@ if (!isset($_GET['id'])) {
 }
 
 $id = intval($_GET['id']);
-$result = $conn->query("SELECT galeri.*, kategori.nama AS kategori 
-                        FROM galeri 
-                        LEFT JOIN kategori ON galeri.kategori_id = kategori.id
-                        WHERE galeri.id = $id");
+$query = "SELECT galeri.*, kategori.nama AS kategori 
+          FROM galeri 
+          LEFT JOIN kategori ON galeri.kategori_id = kategori.id
+          WHERE galeri.id = $id";
+$result = $conn->query($query);
 
 if ($result->num_rows == 0) {
     echo "Foto tidak ditemukan!";
@@ -29,44 +30,34 @@ if (!isset($_SESSION['voted'])) {
 // Proses Like
 if (isset($_POST['like'])) {
     if (!isset($_SESSION['voted'][$id])) {
-        // Belum pernah vote → tambah like
         $conn->query("UPDATE galeri SET likes = likes + 1 WHERE id = $id");
         $_SESSION['voted'][$id] = 'like';
     } elseif ($_SESSION['voted'][$id] === 'like') {
-        // Sudah like → batalin like
         $conn->query("UPDATE galeri SET likes = likes - 1 WHERE id = $id");
         unset($_SESSION['voted'][$id]);
     } elseif ($_SESSION['voted'][$id] === 'unlike') {
-        // Sudah unlike → pindah ke like
         $conn->query("UPDATE galeri SET unlikes = unlikes - 1, likes = likes + 1 WHERE id = $id");
         $_SESSION['voted'][$id] = 'like';
     }
-    header("Location: detail.php?id=$id");
-    exit;
+    $result = $conn->query($query);
+    $foto = $result->fetch_assoc();
 }
 
 // Proses Unlike
 if (isset($_POST['unlike'])) {
     if (!isset($_SESSION['voted'][$id])) {
-        // Belum pernah vote → tambah unlike
         $conn->query("UPDATE galeri SET unlikes = unlikes + 1 WHERE id = $id");
         $_SESSION['voted'][$id] = 'unlike';
     } elseif ($_SESSION['voted'][$id] === 'unlike') {
-        // Sudah unlike → batalin unlike
         $conn->query("UPDATE galeri SET unlikes = unlikes - 1 WHERE id = $id");
         unset($_SESSION['voted'][$id]);
     } elseif ($_SESSION['voted'][$id] === 'like') {
-        // Sudah like → pindah ke unlike
         $conn->query("UPDATE galeri SET likes = likes - 1, unlikes = unlikes + 1 WHERE id = $id");
         $_SESSION['voted'][$id] = 'unlike';
     }
-    header("Location: detail.php?id=$id");
-    exit;
+    $result = $conn->query($query);
+    $foto = $result->fetch_assoc();
 }
-
-// Ambil data terbaru setelah update
-$result = $conn->query("SELECT * FROM galeri WHERE id = $id");
-$foto = $result->fetch_assoc();
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -81,7 +72,7 @@ $foto = $result->fetch_assoc();
       padding: 30px;
     }
     .container {
-      max-width: 1000px;
+      max-width: 900px;
       margin: auto;
       display: flex;
       gap: 30px;
@@ -89,18 +80,35 @@ $foto = $result->fetch_assoc();
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      flex-wrap: wrap;
+      align-items: flex-start;
     }
-    .container img {
-      width: 500px;
-      max-height: 500px;
-      object-fit: cover;
+    .img-wrapper {
+      flex: 0 0 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      background: #f1f5f9;
       border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      margin-bottom: 10px;
+    }
+    .img-wrapper img {
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      background: #fff;
+      display: block;
+      margin: auto;
     }
     .info {
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-width: 250px;
     }
     h1 {
       margin-top: 0;
@@ -143,12 +151,27 @@ $foto = $result->fetch_assoc();
       opacity: 0.8;
       border: 2px solid #000;
     }
+    @media (max-width: 700px) {
+      .container {
+        flex-direction: column;
+        gap: 0;
+        padding: 10px;
+      }
+      .img-wrapper {
+        width: 100%;
+        min-height: 220px;
+      }
+      .img-wrapper img {
+        max-height: 220px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <img src="uploads/<?= htmlspecialchars($foto['file']) ?>" alt="<?= htmlspecialchars($foto['judul']) ?>">
-
+    <div class="img-wrapper">
+      <img src="uploads/<?= htmlspecialchars($foto['file']) ?>" alt="<?= htmlspecialchars($foto['judul']) ?>">
+    </div>
     <div class="info">
       <div>
         <h1><?= htmlspecialchars($foto['judul']) ?></h1>

@@ -125,7 +125,9 @@ Proyek ini bersifat open-source. Silakan gunakan, modifikasi, dan distribusikan 
 ```
 ---
 ## Screenshot
-![alt text](Readme.PNG) 
-![alt text](readme1.PNG) 
-![alt text](readme2.PNG)
+![alt text](WEB1.PNG) 
+![alt text](WEB2.PNG)
+![alt text](readme2-1.PNG)
 ---
+## UI/UX
+https://www.figma.com/design/aERgts2HpF6SA5f3zz1n7A/Untitled?node-id=0-1&t=7cLSfQBoKBCN6FNO-1

@@ -140,4 +140,4 @@ Proyek ini bersifat open-source. Silakan gunakan, modifikasi, dan distribusikan 
 ![alt text](readme2-1.PNG)
 ---
 ## UI/UX
-https://www.figma.com/design/aERgts2HpF6SA5f3zz1n7A/Untitled?node-id=0-1&t=7cLSfQBoKBCN6FNO-1
+![alt text](UI_UX.PNG)

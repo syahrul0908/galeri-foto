@@ -94,34 +94,44 @@ Proyek ini bersifat open-source. Silakan gunakan, modifikasi, dan distribusikan 
 ```mermaid
     flowchart TD
     
-    A[Mulai] --> B{Sudah login admin?}
-    B -- Tidak --> C[Redirect ke admin/login.php] --> Z[Selesai]
-    B -- Ya --> D[Include database.php]
+    A[START] --> B
+    B --> C[USER]
+    B --> D[ADMIN]
+    C --> E[Buka Galeri / Home]
+    D --> F[Login Dashboard]
+    E --> G[Lihat Foto / Filter Kategori]
+    G --> H[Klik Foto -> Detail Foto]
+    H --> I[END]
+    F --> J[Dashboard Statistik]
+    F --> K[Kelola Foto]
+    F --> L[Kelola Kategori]
+    J --> M[Logout]
+    K --> M
+    L --> M
+    M --> I[END]
 
-    subgraph LoadData [Load Data Awal]
-        D --> E[Ambil semua kategori]
-        E --> F[Ambil semua foto]
+    subgraph User Flow
+        E
+        G
+        H
+        N[Request Foto]
     end
 
-    F --> G{Ada parameter edit?}
-    G -- Tidak --> H[Tampilkan pesan: pilih foto untuk diedit]
-    G -- Ya --> I[Ambil data foto yang diedit]
+    subgraph Admin Flow
+        F
+        J
+        K
+        L
+        M
+        O[Terima Request Foto]
+    end
 
-    I --> J{Request method POST?}
-    J -- Tidak --> K[Tampilkan form edit + preview]
-    J -- Ya --> L{Ada file baru diupload?}
-    
-    L -- Ya --> M[Upload file baru] --> N[Hapus file lama] --> O["Update data galeri (judul, deskripsi, kategori, file)"]
-    L -- Tidak --> P["Update data galeri (judul, deskripsi, kategori)"]
-
-    O --> Q[Redirect ke foto.php?edit=id]
-    P --> Q
-
-    H --> R[Tampilkan tabel daftar foto]
-    K --> R
-    Q --> R
-
-    R --> Z[Selesai]
+    C --> N
+    N --> D
+    F --> O
+    O --> J
+    O --> K
+    O --> L
 ```
 ---
 ## Screenshot
